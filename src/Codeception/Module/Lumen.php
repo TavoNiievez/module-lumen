@@ -21,13 +21,8 @@ use Illuminate\Database\Eloquent\Model as EloquentModel;
  * Please try it and leave your feedback.
  *
  * ## Demo project
- * <https://github.com/janhenkgerritsen/codeception-lumen-sample>
+ * <https://github.com/Codeception/codeception-lumen-sample>
  *
- * ## Status
- *
- * * Maintainer: **Jan-Henk Gerritsen**
- * * Stability: **dev**
- * * Contact: janhenkgerritsen@gmail.com
  *
  * ## Config
  *
