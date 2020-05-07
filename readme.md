@@ -1,6 +1,6 @@
 # Codeception module for Lumen framework
 
-[![Build Status](https://travis-ci.org/Codeception/module-lumen.svg?branch=master)](https://travis-ci.org/Codeception/module-lumen)
+![Build Status](https://github.com/Codeception/module-lumen/workflows/CI/badge.svg)
 
 ## Installation
 
