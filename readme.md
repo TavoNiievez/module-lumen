@@ -10,4 +10,4 @@ composer require --dev "codeception/module-lumen"
 
 ## Documentation
 
-<a href="documentation.md">Look at documentation.md file</a>
+<a href="https://codeception.com/docs/modules/Lumen">Module documentation</a>
