@@ -40,7 +40,15 @@ jobs:
       run: composer validate
 
     - name: Install dependencies
-      run: composer install --prefer-dist --no-progress --no-interaction --no-suggest
+      run: |
+        composer require --no-update symfony/event-dispatcher:3.1.*
+        composer require --no-update symfony/console:3.1.*
+        composer require --no-update symfony/browser-kit:3.4.*
+        composer require --no-update symfony/css-selector:3.4.*
+        composer require --no-update symfony/dom-crawler:3.4.*
+        composer require --no-update symfony/finder:3.1.*
+        composer require --no-update symfony/yaml:3.1.*
+        composer install --prefer-dist --no-progress --no-interaction --no-suggest
 
     - name: Run test suite
       run: |
