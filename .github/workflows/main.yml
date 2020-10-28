@@ -8,7 +8,7 @@ jobs:
 
     strategy:
       matrix:
-        php: [5.6, 7.0, 7.1]
+        php: [5.6, 7.0, 7.1, 7.4, 8.0]
 
     steps:
     - name: Checkout code
@@ -26,7 +26,7 @@ jobs:
       with:
         repository: codeception/codeception-lumen-sample
         path: framework-tests
-        ref: codeception-2.2
+        ref: codeception-4
 
     - name: Install Lumen Sample
       run: |
