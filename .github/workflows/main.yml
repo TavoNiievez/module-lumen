@@ -8,7 +8,8 @@ jobs:
 
     strategy:
       matrix:
-        php: [5.6, 7.0, 7.1, 7.4, 8.0]
+        php: [7.3, 7.4, 8.0]
+        lumen: [6, 8]
 
     steps:
     - name: Checkout code
@@ -18,39 +19,63 @@ jobs:
       uses: shivammathur/setup-php@v2
       with:
         php-version: ${{ matrix.php }}
-        extensions: zip, pdo, sqlite
+        tools: composer:v2
+        extensions: ctype, iconv, intl, json, mbstring, pdo, pdo_sqlite
         coverage: none
 
-    - name: Checkout Lumen Sample
+    - name: Checkout Lumen 6 Sample
+      if: matrix.lumen == 6
       uses: actions/checkout@v2
       with:
-        repository: codeception/codeception-lumen-sample
+        repository: codeception/lumen-module-tests
         path: framework-tests
-        ref: codeception-4
+        ref: 6.x
 
-    - name: Install Lumen Sample
-      run: |
-        composer update --no-dev --prefer-dist --no-interaction
-        cp .env.testing .env
-        touch storage/testing.sqlite
-        php artisan migrate --database=testing --force
-      working-directory: framework-tests
+    - name: Checkout Lumen 8 Sample
+      if: matrix.lumen == 8
+      uses: actions/checkout@v2
+      with:
+        repository: codeception/lumen-module-tests
+        path: framework-tests
+        ref: main
+
+    - name: Get composer cache directory
+      id: composer-cache
+      run: echo "::set-output name=dir::$(composer config cache-files-dir)"
+
+    - name: Cache composer dependencies
+      uses: actions/cache@v2.1.3
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: ${{ runner.os }}-${{ matrix.php }}-composer-${{ hashFiles('composer.json') }}
+        restore-keys: ${{ runner.os }}-${{ matrix.php }}-composer-
+
+    - name: Install dotenv 3 for Lumen 6
+      if: matrix.lumen == 6
+      run: composer require vlucas/phpdotenv ^3.6
+
+    - name: Install dependencies
+      run: composer install --prefer-dist --no-progress
 
     - name: Validate composer.json and composer.lock
       run: composer validate
+      working-directory: framework-tests
 
-    - name: Install dependencies
+    - name: Install Lumen Sample
       run: |
-        composer require --no-update symfony/event-dispatcher:3.1.*
-        composer require --no-update symfony/console:3.1.*
-        composer require --no-update symfony/browser-kit:3.4.*
-        composer require --no-update symfony/css-selector:3.4.*
-        composer require --no-update symfony/dom-crawler:3.4.*
-        composer require --no-update symfony/finder:3.1.*
-        composer require --no-update symfony/yaml:3.1.*
-        composer install --prefer-dist --no-progress --no-interaction --no-suggest
+        composer remove codeception/module-lumen --dev --no-update
+        composer update --no-progress
+      working-directory: framework-tests
+
+    - name: Prepare the test environment and run test suite
+      run: |
+        cp .env.testing .env
+        php artisan cache:clear
+        touch database/database.sqlite
+        php artisan migrate --seed --env=testing --force
+      working-directory: framework-tests
 
     - name: Run test suite
       run: |
         php vendor/bin/codecept build -c framework-tests
-        php vendor/bin/codecept run functional -c framework-tests
+        php vendor/bin/codecept run Functional -c framework-tests
