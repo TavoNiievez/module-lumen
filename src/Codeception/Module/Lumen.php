@@ -1,9 +1,12 @@
 <?php
+
+declare(strict_types=1);
+
 namespace Codeception\Module;
 
 use Codeception\Configuration;
-use Codeception\Exception\ModuleException;
 use Codeception\Exception\ModuleConfigException;
+use Codeception\Exception\ModuleException;
 use Codeception\Lib\Connector\Lumen as LumenConnector;
 use Codeception\Lib\Framework;
 use Codeception\Lib\Interfaces\ActiveRecord;
@@ -11,8 +14,14 @@ use Codeception\Lib\Interfaces\PartedModule;
 use Codeception\Lib\ModuleContainer;
 use Codeception\TestInterface;
 use Codeception\Util\ReflectionHelper;
+use Exception;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\FactoryBuilder;
 use Illuminate\Database\Eloquent\Model as EloquentModel;
+use Laravel\Lumen\Application;
+use Laravel\Lumen\Routing\Router;
+use ReflectionException;
+use RuntimeException;
 
 /**
  *
@@ -20,7 +29,7 @@ use Illuminate\Database\Eloquent\Model as EloquentModel;
  * Please try it and leave your feedback.
  *
  * ## Demo project
- * <https://github.com/Codeception/codeception-lumen-sample>
+ * <https://github.com/codeception/lumen-module-tests>
  *
  *
  * ## Config
@@ -40,17 +49,19 @@ use Illuminate\Database\Eloquent\Model as EloquentModel;
  * ## Parts
  *
  * * ORM - only include the database methods of this module:
+ *     * dontSeeRecord
+ *     * grabRecord
  *     * have
  *     * haveMultiple
  *     * haveRecord
- *     * grabRecord
+ *     * make
+ *     * makeMultiple
  *     * seeRecord
- *     * dontSeeRecord
  */
 class Lumen extends Framework implements ActiveRecord, PartedModule
 {
     /**
-     * @var \Laravel\Lumen\Application
+     * @var Application
      */
     public $app;
 
@@ -59,13 +70,7 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      */
     public $config = [];
 
-    /**
-     * Constructor.
-     *
-     * @param ModuleContainer $container
-     * @param array|null $config
-     */
-    public function __construct(ModuleContainer $container, $config = null)
+    public function __construct(ModuleContainer $container, ?array $config = null)
     {
         $this->config = array_merge(
             [
@@ -87,16 +92,15 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
         parent::__construct($container);
     }
 
-    /**
-     * @return array
-     */
-    public function _parts()
+    public function _parts(): array
     {
         return ['orm'];
     }
 
     /**
      * Initialize hook.
+     *
+     * @throws ModuleConfigException
      */
     public function _initialize()
     {
@@ -107,8 +111,7 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
     /**
      * Before hook.
      *
-     * @param \Codeception\TestInterface $test
-     * @throws ModuleConfigException
+     * @param TestInterface $test
      */
     public function _before(TestInterface $test)
     {
@@ -122,7 +125,7 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
     /**
      * After hook.
      *
-     * @param \Codeception\TestInterface $test
+     * @param TestInterface $test
      */
     public function _after(TestInterface $test)
     {
@@ -164,18 +167,13 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
 
     /**
      * Provides access the Lumen application object.
-     *
-     * @return \Laravel\Lumen\Application
      */
-    public function getApplication()
+    public function getApplication(): Application
     {
         return $this->app;
     }
 
-    /**
-     * @param \Laravel\Lumen\Application $app
-     */
-    public function setApplication($app)
+    public function setApplication(Application $app)
     {
         $this->app = $app;
     }
@@ -186,13 +184,12 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * ```php
      * <?php
      * $I->amOnRoute('homepage');
-     * ?>
      * ```
      *
-     * @param $routeName
+     * @param string $routeName
      * @param array $params
      */
-    public function amOnRoute($routeName, $params = [])
+    public function amOnRoute(string $routeName, $params = [])
     {
         $route = $this->getRouteByName($routeName);
 
@@ -210,9 +207,9 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * @param string $routeName
      * @return array|null
      */
-    private function getRouteByName($routeName)
+    private function getRouteByName(string $routeName): ?array
     {
-        if (isset($this->app->router) && $this->app->router instanceof \Laravel\Lumen\Routing\Router) {
+        if (isset($this->app->router) && $this->app->router instanceof Router) {
             $router = $this->app->router;
         } else {
             // backward compatibility with lumen 5.3
@@ -236,7 +233,7 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * @param array $params
      * @return string
      */
-    private function generateUrlForRoute($route, $params)
+    private function generateUrlForRoute(array $route, array $params): string
     {
         $url = $route['uri'];
 
@@ -252,27 +249,14 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * Set the authenticated user for the next request.
      * This will not persist between multiple requests.
      *
-     * @param  \Illuminate\Contracts\Auth\Authenticatable
-     * @param  string|null $driver The authentication driver for Lumen <= 5.1.*, guard name for Lumen >= 5.2
-     * @return void
+     * @param Authenticatable $user
+     * @param string|null $guardName The guard name
      */
-    public function amLoggedAs($user, $driver = null)
+    public function amLoggedAs(Authenticatable $user, ?string $guardName = null): void
     {
-        if (!$user instanceof Authenticatable) {
-            $this->fail(
-                'The user passed to amLoggedAs() should be an instance of \\Illuminate\\Contracts\\Auth\\Authenticatable'
-            );
-        }
+        $auth = $this->app['auth'];
 
-        $guard = $auth = $this->app['auth'];
-
-        if (method_exists($auth, 'driver')) {
-            $guard = $auth->driver($driver);
-        }
-
-        if (method_exists($auth, 'guard')) {
-            $guard = $auth->guard($driver);
-        }
+        $guard = $auth->guard($guardName);
 
         $guard->setUser($user);
     }
@@ -280,14 +264,14 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
     /**
      * Checks that user is authenticated.
      */
-    public function seeAuthentication()
+    public function seeAuthentication(): void
     {
         $this->assertTrue($this->app['auth']->check(), 'User is not logged in');
     }
     /**
      * Check that user is not authenticated.
      */
-    public function dontSeeAuthentication()
+    public function dontSeeAuthentication(): void
     {
         $this->assertFalse($this->app['auth']->check(), 'User is logged in');
     }
@@ -308,13 +292,12 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * $service = $I->grabService('foo');
      *
      * // Will return an instance of FooBar, also works for singletons.
-     * ?>
      * ```
      *
-     * @param  string $class
+     * @param string $class
      * @return mixed
      */
-    public function grabService($class)
+    public function grabService(string $class)
     {
         return $this->app[$class];
     }
@@ -326,9 +309,8 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      *
      * ``` php
      * <?php
-     * $user_id = $I->haveRecord('users', array('name' => 'Davert')); // returns integer
-     * $user = $I->haveRecord('App\User', array('name' => 'Davert')); // returns Eloquent model
-     * ?>
+     * $userId = $I->haveRecord('users', ['name' => 'Davert']); // returns integer
+     * $user = $I->haveRecord('App\Models\User', ['name' => 'Davert']); // returns Eloquent model
      * ```
      *
      * @param string $table
@@ -342,7 +324,7 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
             $model = new $table;
 
             if (!$model instanceof EloquentModel) {
-                throw new \RuntimeException("Class $table is not an Eloquent model");
+                throw new RuntimeException("Class $table is not an Eloquent model");
             }
 
             $model->fill($attributes)->save();
@@ -352,7 +334,7 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
 
         try {
             return $this->app['db']->table($table)->insertGetId($attributes);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->fail("Could not insert record into table '$table':\n\n" . $e->getMessage());
         }
     }
@@ -363,8 +345,8 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      *
      * ``` php
      * <?php
-     * $I->seeRecord('users', array('name' => 'davert'));
-     * $I->seeRecord('App\User', array('name' => 'davert'));
+     * $I->seeRecord('users', ['name' => 'Davert']);
+     * $I->seeRecord('App\Models\User', ['name' => 'Davert']);
      * ?>
      * ```
      *
@@ -389,16 +371,15 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      *
      * ``` php
      * <?php
-     * $I->dontSeeRecord('users', array('name' => 'davert'));
-     * $I->dontSeeRecord('App\User', array('name' => 'davert'));
-     * ?>
+     * $I->dontSeeRecord('users', ['name' => 'davert']);
+     * $I->dontSeeRecord('App\Models\User', ['name' => 'davert']);
      * ```
      *
      * @param string $table
      * @param array $attributes
      * @part orm
      */
-    public function dontSeeRecord($table, $attributes = [])
+    public function dontSeeRecord($table, $attributes = []): void
     {
         if (class_exists($table)) {
             if ($this->findModel($table, $attributes)) {
@@ -416,9 +397,8 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      *
      * ``` php
      * <?php
-     * $record = $I->grabRecord('users', array('name' => 'davert')); // returns array
-     * $record = $I->grabRecord('App\User', array('name' => 'davert')); // returns Eloquent model
-     * ?>
+     * $record = $I->grabRecord('users', ['name' => 'davert']); // returns array
+     * $record = $I->grabRecord('App\Models\User', ['name' => 'davert']); // returns Eloquent model
      * ```
      *
      * @param string $table
@@ -446,15 +426,14 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
     /**
      * @param string $modelClass
      * @param array $attributes
-     *
-     * @return EloquentModel
+     * @return EloquentModel|null
      */
-    protected function findModel($modelClass, $attributes = [])
+    protected function findModel(string $modelClass, array $attributes = [])
     {
         $model = new $modelClass;
 
         if (!$model instanceof EloquentModel) {
-            throw new \RuntimeException("Class $modelClass is not an Eloquent model");
+            throw new RuntimeException("Class $modelClass is not an Eloquent model");
         }
 
         $query = $model->newQuery();
@@ -465,12 +444,7 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
         return $query->first();
     }
 
-    /**
-     * @param string $table
-     * @param array $attributes
-     * @return array
-     */
-    protected function findRecord($table, $attributes = [])
+    protected function findRecord(string $table, array $attributes = []): array
     {
         $query = $this->app['db']->table($table);
         foreach ($attributes as $key => $value) {
@@ -482,14 +456,12 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
 
     /**
      * Use Lumen's model factory to create a model.
-     * Can only be used with Lumen 5.1 and later.
      *
      * ``` php
      * <?php
-     * $I->have('App\User');
-     * $I->have('App\User', ['name' => 'John Doe']);
-     * $I->have('App\User', [], 'admin');
-     * ?>
+     * $I->have('App\Models\User');
+     * $I->have('App\Models\User', ['name' => 'John Doe']);
+     * $I->have('App\Models\User', [], 'admin');
      * ```
      *
      * @see https://lumen.laravel.com/docs/master/testing#model-factories
@@ -499,25 +471,23 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * @return mixed
      * @part orm
      */
-    public function have($model, $attributes = [], $name = 'default')
+    public function have(string $model, array $attributes = [], string $name = 'default')
     {
         try {
             return $this->modelFactory($model, $name)->create($attributes);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->fail("Could not create model: \n\n" . get_class($e) . "\n\n" . $e->getMessage());
         }
     }
 
     /**
-     * Use Laravel's model factory to create multiple models.
-     * Can only be used with Lumen 5.1 and later.
+     * Use Laravel model factory to create multiple models.
      *
      * ``` php
      * <?php
-     * $I->haveMultiple('App\User', 10);
-     * $I->haveMultiple('App\User', 10, ['name' => 'John Doe']);
-     * $I->haveMultiple('App\User', 10, [], 'admin');
-     * ?>
+     * $I->haveMultiple('App\Models\User', 10);
+     * $I->haveMultiple('App\Models\User', 10, ['name' => 'John Doe']);
+     * $I->haveMultiple('App\Models\User', 10, [], 'admin');
      * ```
      *
      * @see https://lumen.laravel.com/docs/master/testing#model-factories
@@ -528,26 +498,24 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * @return mixed
      * @part orm
      */
-    public function haveMultiple($model, $times, $attributes = [], $name = 'default')
+    public function haveMultiple(string $model, int $times, array $attributes = [], string $name = 'default')
     {
         try {
             return $this->modelFactory($model, $name, $times)->create($attributes);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->fail("Could not create model: \n\n" . get_class($e) . "\n\n" . $e->getMessage());
         }
     }
-    
+
 
     /**
      * Use Lumen's model factory to make a model instance.
-     * Can only be used with Lumen 5.1 and later.
      *
      * ``` php
      * <?php
-     * $I->make('App\User');
-     * $I->make('App\User', ['name' => 'John Doe']);
-     * $I->make('App\User', [], 'admin');
-     * ?>
+     * $I->make('App\Models\User');
+     * $I->make('App\Models\User', ['name' => 'John Doe']);
+     * $I->make('App\Models\User', [], 'admin');
      * ```
      *
      * @see https://lumen.laravel.com/docs/master/testing#model-factories
@@ -557,25 +525,23 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * @return mixed
      * @part orm
      */
-    public function make($model, $attributes = [], $name = 'default')
+    public function make(string $model, array $attributes = [], string $name = 'default')
     {
         try {
             return $this->modelFactory($model, $name)->make($attributes);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->fail("Could not make model: \n\n" . get_class($e) . "\n\n" . $e->getMessage());
         }
     }
-    
+
     /**
-     * Use Laravel's model factory to make multiple model instances.
-     * Can only be used with Lumen 5.1 and later.
+     * Use Laravel model factory to make multiple model instances.
      *
      * ``` php
      * <?php
-     * $I->makeMultiple('App\User', 10);
-     * $I->makeMultiple('App\User', 10, ['name' => 'John Doe']);
-     * $I->makeMultiple('App\User', 10, [], 'admin');
-     * ?>
+     * $I->makeMultiple('App\Models\User', 10);
+     * $I->makeMultiple('App\Models\User', 10, ['name' => 'John Doe']);
+     * $I->makeMultiple('App\Models\User', 10, [], 'admin');
      * ```
      *
      * @see https://lumen.laravel.com/docs/master/testing#model-factories
@@ -586,11 +552,11 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * @return mixed
      * @part orm
      */
-    public function makeMultiple($model, $times, $attributes = [], $name = 'default')
+    public function makeMultiple(string $model, int $times, array $attributes = [], string $name = 'default')
     {
         try {
             return $this->modelFactory($model, $name, $times)->make($attributes);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->fail("Could not make model: \n\n" . get_class($e) . "\n\n" . $e->getMessage());
         }
     }
@@ -599,10 +565,10 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * @param string $model
      * @param string $name
      * @param int $times
-     * @return \Illuminate\Database\Eloquent\FactoryBuilder
+     * @return FactoryBuilder
      * @throws ModuleException
      */
-    protected function modelFactory($model, $name, $times = 1)
+    protected function modelFactory(string $model, string $name, int $times = 1)
     {
         if (!function_exists('factory')) {
             throw new ModuleException($this, 'The factory() method does not exist. ' .
@@ -617,8 +583,9 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * This elements of this list are regular expressions.
      *
      * @return array
+     * @throws ReflectionException
      */
-    protected function getInternalDomains()
+    protected function getInternalDomains(): array
     {
         $server = ReflectionHelper::readPrivateProperty($this->client, 'server');
 
@@ -631,14 +598,13 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      *
      * ``` php
      * <?php
-     * $I->haveBinding('My\Interface', 'My\Implementation');
-     * ?>
+     * $I->haveBinding('App\MyInterface', 'App\MyImplementation');
      * ```
      *
      * @param $abstract
      * @param $concrete
      */
-    public function haveBinding($abstract, $concrete)
+    public function haveBinding($abstract, $concrete): void
     {
         $this->client->haveBinding($abstract, $concrete);
     }
@@ -650,13 +616,12 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * ``` php
      * <?php
      * $I->haveSingleton('My\Interface', 'My\Singleton');
-     * ?>
      * ```
      *
      * @param $abstract
      * @param $concrete
      */
-    public function haveSingleton($abstract, $concrete)
+    public function haveSingleton($abstract, $concrete): void
     {
         $this->client->haveBinding($abstract, $concrete, true);
     }
@@ -667,20 +632,19 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      *
      * ``` php
      * <?php
-     * $I->haveContextualBinding('My\Class', '$variable', 'value');
+     * $I->haveContextualBinding('App\MyClass', '$variable', 'value');
      *
      * // This is similar to the following in your Laravel application
-     * $app->when('My\Class')
+     * $app->when('App\MyClass')
      *     ->needs('$variable')
      *     ->give('value');
-     * ?>
      * ```
      *
      * @param $concrete
      * @param $abstract
      * @param $implementation
      */
-    public function haveContextualBinding($concrete, $abstract, $implementation)
+    public function haveContextualBinding($concrete, $abstract, $implementation): void
     {
         $this->client->haveContextualBinding($concrete, $abstract, $implementation);
     }
@@ -691,14 +655,13 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      *
      * ``` php
      * <?php
-     * $I->haveInstance('My\Class', new My\Class());
-     * ?>
+     * $I->haveInstance('App\MyClass', new App\MyClass());
      * ```
      *
      * @param $abstract
      * @param $instance
      */
-    public function haveInstance($abstract, $instance)
+    public function haveInstance($abstract, $instance): void
     {
         $this->client->haveInstance($abstract, $instance);
     }
@@ -712,12 +675,11 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * $I->haveApplicationHandler(function($app) {
      *     $app->make('config')->set(['test_value' => '10']);
      * });
-     * ?>
      * ```
      *
      * @param $handler
      */
-    public function haveApplicationHandler($handler)
+    public function haveApplicationHandler($handler): void
     {
         $this->client->haveApplicationHandler($handler);
     }
@@ -728,11 +690,10 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * ``` php
      * <?php
      * $I->clearApplicationHandlers();
-     * ?>
      * ```
      *
      */
-    public function clearApplicationHandlers()
+    public function clearApplicationHandlers(): void
     {
         $this->client->clearApplicationHandlers();
     }

@@ -1,17 +1,23 @@
 <?php
+
+declare(strict_types=1);
+
 namespace Codeception\Lib\Connector;
 
 use Codeception\Lib\Connector\Lumen\DummyKernel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Facade;
+use Laravel\Lumen\Application;
+use ReflectionException;
+use ReflectionMethod;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\HttpKernelBrowser as Client;
-use Illuminate\Http\UploadedFile;
+use Symfony\Component\HttpKernel\Kernel as SymfonyKernel;
 
-//Alias for Symfony < 4.3
-if (!class_exists('Symfony\Component\HttpKernel\HttpKernelBrowser') && class_exists('Symfony\Component\HttpKernel\Client')) {
+if (SymfonyKernel::VERSION_ID < 40300) {
     class_alias('Symfony\Component\HttpKernel\Client', 'Symfony\Component\HttpKernel\HttpKernelBrowser');
 }
 
@@ -38,7 +44,7 @@ class Lumen extends Client
     private $applicationHandlers = [];
 
     /**
-     * @var \Laravel\Lumen\Application
+     * @var Application
      */
     private $app;
 
@@ -84,8 +90,9 @@ class Lumen extends Client
      *
      * @param SymfonyRequest $request
      * @return Response
+     * @throws ReflectionException
      */
-    protected function doRequest($request)
+    protected function doRequest($request): Response
     {
         if (!$this->firstRequest) {
             $this->initialize($request);
@@ -100,7 +107,7 @@ class Lumen extends Client
         $request = Request::createFromBase($request);
         $response = $this->kernel->handle($request);
 
-        $method = new \ReflectionMethod(get_class($this->app), 'callTerminableMiddleware');
+        $method = new ReflectionMethod(get_class($this->app), 'callTerminableMiddleware');
         $method->setAccessible(true);
         $method->invoke($this->app, $response);
 
@@ -128,7 +135,7 @@ class Lumen extends Client
         }
 
         $this->app = $this->kernel = require $this->module->config['bootstrap_file'];
-        
+
         // in version 5.6.*, lumen introduced the same design pattern like Laravel
         // to load all service provider we need to call on Laravel\Lumen\Application::boot()
         if (method_exists($this->app, 'boot')) {
@@ -160,11 +167,11 @@ class Lumen extends Client
      * @param array $files
      * @return array
      */
-    protected function filterFiles(array $files)
+    protected function filterFiles(array $files): array
     {
         $files = parent::filterFiles($files);
 
-        if (! class_exists('Illuminate\Http\UploadedFile')) {
+        if (!class_exists('Illuminate\Http\UploadedFile')) {
             // The \Illuminate\Http\UploadedFile class was introduced in Laravel 5.2.15,
             // so don't change the $files array if it does not exist.
             return $files;
@@ -173,11 +180,7 @@ class Lumen extends Client
         return $this->convertToTestFiles($files);
     }
 
-    /**
-     * @param array $files
-     * @return array
-     */
-    private function convertToTestFiles(array $files)
+    private function convertToTestFiles(array $files): array
     {
         $filtered = [];
 
@@ -242,7 +245,7 @@ class Lumen extends Client
      * @param $concrete
      * @param bool $shared
      */
-    public function haveBinding($abstract, $concrete, $shared = false)
+    public function haveBinding($abstract, $concrete, bool $shared = false): void
     {
         $this->bindings[$abstract] = [$concrete, $shared];
     }
@@ -254,7 +257,7 @@ class Lumen extends Client
      * @param $abstract
      * @param $implementation
      */
-    public function haveContextualBinding($concrete, $abstract, $implementation)
+    public function haveContextualBinding($concrete, $abstract, $implementation): void
     {
         if (! isset($this->contextualBindings[$concrete])) {
             $this->contextualBindings[$concrete] = [];
@@ -268,7 +271,7 @@ class Lumen extends Client
      * @param $abstract
      * @param $instance
      */
-    public function haveInstance($abstract, $instance)
+    public function haveInstance($abstract, $instance): void
     {
         $this->instances[$abstract] = $instance;
     }
@@ -278,14 +281,14 @@ class Lumen extends Client
      *
      * @param $handler
      */
-    public function haveApplicationHandler($handler)
+    public function haveApplicationHandler($handler): void
     {
         $this->applicationHandlers[] = $handler;
     }
     /**
      * Clear the registered application handlers.
      */
-    public function clearApplicationHandlers()
+    public function clearApplicationHandlers(): void
     {
         $this->applicationHandlers = [];
     }

@@ -1,13 +1,29 @@
-# Codeception module for Lumen framework
+# Codeception Module Lumen
 
-![Build Status](https://github.com/Codeception/module-lumen/workflows/CI/badge.svg)
+A Codeception module for Lumen framework.
+
+[![Actions Status](https://github.com/Codeception/module-lumen/workflows/CI/badge.svg)](https://github.com/Codeception/module-lumen/actions)
+[![Latest Stable Version](https://poser.pugx.org/codeception/module-lumen/v/stable)](https://github.com/Codeception/module-lumen/releases)
+[![Total Downloads](https://poser.pugx.org/codeception/module-lumen/downloads)](https://packagist.org/packages/codeception/module-lumen)
+[![License](https://poser.pugx.org/codeception/module-lumen/license)](/LICENSE)
+
+## Requirements
+
+* `Lumen 6` or higher.
+* `PHP 7.3` or higher.
 
 ## Installation
 
 ```
-composer require --dev "codeception/module-lumen"
+composer require "codeception/module-lumen" --dev
 ```
 
 ## Documentation
 
-<a href="https://codeception.com/docs/modules/Lumen">Module documentation</a>
+See [the module documentation](https://codeception.com/docs/modules/Lumen).
+
+## License
+
+`Codeception Module Lumen` is open-sourced software licensed under the [MIT](/LICENSE) License.
+
+© Codeception PHP Testing Framework

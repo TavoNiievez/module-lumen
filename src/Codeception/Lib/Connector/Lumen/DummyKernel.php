@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 namespace Codeception\Lib\Connector\Lumen;
 
 use Symfony\Component\HttpFoundation\Request;
