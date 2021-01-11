@@ -48,7 +48,7 @@ use RuntimeException;
  *
  * ## Parts
  *
- * * ORM - only include the database methods of this module:
+ * * `ORM`: Only include the database methods of this module:
  *     * dontSeeRecord
  *     * grabRecord
  *     * have
@@ -57,6 +57,9 @@ use RuntimeException;
  *     * make
  *     * makeMultiple
  *     * seeRecord
+ *
+ * See [WebDriver module](https://codeception.com/docs/modules/WebDriver#Loading-Parts-from-other-Modules)
+ * for general information on how to load parts of a framework module.
  */
 class Lumen extends Framework implements ActiveRecord, PartedModule
 {
