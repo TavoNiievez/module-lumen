@@ -6,7 +6,6 @@ namespace Codeception\Module;
 
 use Codeception\Configuration;
 use Codeception\Exception\ModuleConfigException;
-use Codeception\Exception\ModuleException;
 use Codeception\Lib\Connector\Lumen as LumenConnector;
 use Codeception\Lib\Framework;
 use Codeception\Lib\Interfaces\ActiveRecord;
@@ -16,12 +15,15 @@ use Codeception\TestInterface;
 use Codeception\Util\ReflectionHelper;
 use Exception;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Auth\Factory as AuthContract;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\FactoryBuilder;
 use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Laravel\Lumen\Application;
 use Laravel\Lumen\Routing\Router;
 use ReflectionException;
 use RuntimeException;
+use Throwable;
 
 /**
  *
@@ -115,13 +117,16 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * Before hook.
      *
      * @param TestInterface $test
+     * @throws Throwable
      */
     public function _before(TestInterface $test)
     {
         $this->client = new LumenConnector($this);
 
-        if ($this->app['db'] && $this->config['cleanup']) {
-            $this->app['db']->beginTransaction();
+        /** @var DatabaseManager $dbManager */
+        $dbManager = $this->app['db'];
+        if ($dbManager instanceof DatabaseManager && $this->config['cleanup']) {
+            $dbManager->beginTransaction();
         }
     }
 
@@ -129,17 +134,21 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * After hook.
      *
      * @param TestInterface $test
+     * @throws Throwable
      */
     public function _after(TestInterface $test)
     {
-        if ($this->app['db'] && $this->config['cleanup']) {
-            $this->app['db']->rollback();
+        /** @var DatabaseManager $dbManager */
+        if (!$dbManager = $this->app['db']) {
+            return;
+        }
+
+        if ($this->config['cleanup']) {
+            $dbManager->rollback();
         }
 
         // disconnect from DB to prevent "Too many connections" issue
-        if ($this->app['db']) {
-            $this->app['db']->disconnect();
-        }
+        $dbManager->disconnect();
     }
 
     /**
@@ -212,13 +221,11 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      */
     private function getRouteByName(string $routeName): ?array
     {
-        if (isset($this->app->router) && $this->app->router instanceof Router) {
-            $router = $this->app->router;
-        } else {
-            // backward compatibility with lumen 5.3
-            $router = $this->app;
-        }
-        foreach ($router->getRoutes() as $route) {
+        /** @var Router $router */
+        $router = $this->app['router'];
+        $routes = $router->getRoutes();
+
+        foreach ($routes as $route) {
             if (isset($route['action']['as']) && $route['action']['as'] == $routeName) {
                 return $route;
             }
@@ -269,14 +276,18 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      */
     public function seeAuthentication(): void
     {
-        $this->assertTrue($this->app['auth']->check(), 'User is not logged in');
+        /** @var AuthContract $auth */
+        $auth = $this->app['auth'];
+        $this->assertTrue($auth->check(), 'User is not logged in');
     }
     /**
      * Check that user is not authenticated.
      */
     public function dontSeeAuthentication(): void
     {
-        $this->assertFalse($this->app['auth']->check(), 'User is logged in');
+        /** @var AuthContract $auth */
+        $auth = $this->app['auth'];
+        $this->assertFalse($auth->check(), 'User is logged in');
     }
 
     /**
@@ -336,7 +347,9 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
         }
 
         try {
-            return $this->app['db']->table($table)->insertGetId($attributes);
+            /** @var DatabaseManager $dbManager */
+            $dbManager = $this->app['db'];
+            return $dbManager->table($table)->insertGetId($attributes);
         } catch (Exception $e) {
             $this->fail("Could not insert record into table '$table':\n\n" . $e->getMessage());
         }
@@ -449,7 +462,9 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
 
     protected function findRecord(string $table, array $attributes = []): array
     {
-        $query = $this->app['db']->table($table);
+        /** @var DatabaseManager $dbManager */
+        $dbManager = $this->app['db'];
+        $query = $dbManager->table($table);
         foreach ($attributes as $key => $value) {
             $query->where($key, $value);
         }
@@ -569,16 +584,13 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * @param string $name
      * @param int $times
      * @return FactoryBuilder
-     * @throws ModuleException
      */
     protected function modelFactory(string $model, string $name, int $times = 1)
     {
-        if (!function_exists('factory')) {
-            throw new ModuleException($this, 'The factory() method does not exist. ' .
-                'This functionality relies on Lumen model factories, which were introduced in Lumen 5.1.');
+        if (function_exists('factory')) {
+            return factory($model, $name, $times);
         }
-
-        return factory($model, $name, $times);
+        return $model::factory()->count($times);
     }
 
     /**
