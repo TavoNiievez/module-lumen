@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Codeception\Lib\Connector;
 
 use Codeception\Lib\Connector\Lumen\DummyKernel;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -124,8 +125,9 @@ class Lumen extends Client
         // Store a reference to the database object
         // so the database connection can be reused during tests
         $this->oldDb = null;
-        if (isset($this->app['db']) && $this->app['db']->connection()) {
-            $this->oldDb = $this->app['db'];
+        $dbManager = isset($this->app['db']) ? $this->app['db'] : null;
+        if ($dbManager instanceof DatabaseManager && $dbManager->connection()) {
+            $this->oldDb = $dbManager;
         }
 
         if (class_exists(Facade::class)) {
