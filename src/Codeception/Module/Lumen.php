@@ -587,10 +587,16 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      */
     protected function modelFactory(string $model, string $name, int $times = 1)
     {
-        if (function_exists('factory')) {
+        if (!function_exists('factory')) {
+            return $model::factory()->count($times);
+        }
+
+        // Support for Lumen < 7 (Factory names defined in illuminate/database version < 7)
+        if (property_exists(FactoryBuilder::class, 'name')) {
             return factory($model, $name, $times);
         }
-        return $model::factory()->count($times);
+        
+        return factory($model, $times);
     }
 
     /**
