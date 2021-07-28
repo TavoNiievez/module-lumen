@@ -22,6 +22,8 @@ composer require "codeception/module-lumen" --dev
 
 See [the module documentation](https://codeception.com/docs/modules/Lumen).
 
+[Changelog](https://github.com/Codeception/module-lumen/releases)
+
 ## License
 
 `Codeception Module Lumen` is open-sourced software licensed under the [MIT](/LICENSE) License.
