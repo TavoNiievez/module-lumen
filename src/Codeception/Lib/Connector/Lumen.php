@@ -15,54 +15,25 @@ use ReflectionException;
 use ReflectionMethod;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\HttpKernelBrowser as Client;
-use Symfony\Component\HttpKernel\Kernel as SymfonyKernel;
+use Symfony\Component\HttpKernel\HttpKernelBrowser;
 
-if (SymfonyKernel::VERSION_ID < 40300) {
-    class_alias('Symfony\Component\HttpKernel\Client', 'Symfony\Component\HttpKernel\HttpKernelBrowser');
-}
-
-class Lumen extends Client
+class Lumen extends HttpKernelBrowser
 {
-    /**
-     * @var array
-     */
-    private $bindings = [];
+    private array $bindings = [];
 
-    /**
-     * @var array
-     */
-    private $contextualBindings = [];
+    private array $contextualBindings = [];
 
-    /**
-     * @var array
-     */
-    private $instances = [];
+    private array $instances = [];
 
-    /**
-     * @var array
-     */
-    private $applicationHandlers = [];
+    private array $applicationHandlers = [];
 
-    /**
-     * @var Application
-     */
-    private $app;
+    private Application $app;
 
-    /**
-     * @var \Codeception\Module\Lumen
-     */
-    private $module;
+    private \Codeception\Module\Lumen $module;
 
-    /**
-     * @var bool
-     */
-    private $firstRequest = true;
+    private bool $firstRequest = true;
 
-    /**
-     * @var object
-     */
-    private $oldDb;
+    private ?object $oldDb = null;
 
     /**
      * Constructor.
@@ -90,7 +61,6 @@ class Lumen extends Client
      * Execute a request.
      *
      * @param SymfonyRequest $request
-     * @return Response
      * @throws ReflectionException
      */
     protected function doRequest($request): Response
@@ -98,6 +68,7 @@ class Lumen extends Client
         if (!$this->firstRequest) {
             $this->initialize($request);
         }
+
         $this->firstRequest = false;
 
         $this->applyBindings();
@@ -117,10 +88,8 @@ class Lumen extends Client
 
     /**
      * Initialize the Lumen framework.
-     *
-     * @param SymfonyRequest|null $request
      */
-    private function initialize($request = null)
+    private function initialize(SymfonyRequest $request = null): void
     {
         // Store a reference to the database object
         // so the database connection can be reused during tests
@@ -143,19 +112,18 @@ class Lumen extends Client
         if (method_exists($this->app, 'boot')) {
             $this->app->boot();
         }
+
         // Lumen registers necessary bindings on demand when calling $app->make(),
         // so here we force the request binding before registering our own request object,
         // otherwise Lumen will overwrite our request object.
         $this->app->make('request');
 
         $request = $request ?: SymfonyRequest::create($this->module->config['url']);
-        $this->app->instance('Illuminate\Http\Request', Request::createFromBase($request));
+        $this->app->instance(\Illuminate\Http\Request::class, Request::createFromBase($request));
 
         // Reset the old database if there is one
         if ($this->oldDb) {
-            $this->app->singleton('db', function () {
-                return $this->oldDb;
-            });
+            $this->app->singleton('db', fn(): object => $this->oldDb);
             Model::setConnectionResolver($this->oldDb);
         }
 
@@ -165,16 +133,13 @@ class Lumen extends Client
     /**
      * Make sure files are \Illuminate\Http\UploadedFile instances with the private $test property set to true.
      * Fixes issue https://github.com/Codeception/Codeception/pull/3417.
-     *
-     * @param array $files
-     * @return array
      */
     protected function filterFiles(array $files): array
     {
         $files = parent::filterFiles($files);
 
-        if (!class_exists('Illuminate\Http\UploadedFile')) {
-            // The \Illuminate\Http\UploadedFile class was introduced in Laravel 5.2.15,
+        if (!class_exists(\Illuminate\Http\UploadedFile::class)) {
+            // The UploadedFile class was introduced in Laravel 5.2.15,
             // so don't change the $files array if it does not exist.
             return $files;
         }
@@ -200,26 +165,28 @@ class Lumen extends Client
     /**
      * Apply the registered application handlers.
      */
-    private function applyApplicationHandlers()
+    private function applyApplicationHandlers(): void
     {
         foreach ($this->applicationHandlers as $handler) {
             call_user_func($handler, $this->app);
         }
     }
+
     /**
      * Apply the registered Laravel service container bindings.
      */
-    private function applyBindings()
+    private function applyBindings(): void
     {
         foreach ($this->bindings as $abstract => $binding) {
             list($concrete, $shared) = $binding;
             $this->app->bind($abstract, $concrete, $shared);
         }
     }
+
     /**
      * Apply the registered Laravel service container contextual bindings.
      */
-    private function applyContextualBindings()
+    private function applyContextualBindings(): void
     {
         foreach ($this->contextualBindings as $concrete => $bindings) {
             foreach ($bindings as $abstract => $implementation) {
@@ -227,18 +194,19 @@ class Lumen extends Client
             }
         }
     }
+
     /**
      * Apply the registered Laravel service container instance bindings.
      */
-    private function applyInstances()
+    private function applyInstances(): void
     {
         foreach ($this->instances as $abstract => $instance) {
             $this->app->instance($abstract, $instance);
         }
     }
-    //======================================================================
+
     // Public methods called by module
-    //======================================================================
+
     /**
      * Register a Laravel service container binding that should be applied
      * after initializing the Laravel Application object.
@@ -251,6 +219,7 @@ class Lumen extends Client
     {
         $this->bindings[$abstract] = [$concrete, $shared];
     }
+
     /**
      * Register a Laravel service container contextual binding that should be applied
      * after initializing the Laravel Application object.
@@ -264,8 +233,10 @@ class Lumen extends Client
         if (! isset($this->contextualBindings[$concrete])) {
             $this->contextualBindings[$concrete] = [];
         }
+
         $this->contextualBindings[$concrete][$abstract] = $implementation;
     }
+
     /**
      * Register a Laravel service container instance binding that should be applied
      * after initializing the Laravel Application object.
@@ -277,6 +248,7 @@ class Lumen extends Client
     {
         $this->instances[$abstract] = $instance;
     }
+
     /**
      * Register a handler than can be used to modify the Laravel application object after it is initialized.
      * The Laravel application object will be passed as an argument to the handler.
@@ -287,6 +259,7 @@ class Lumen extends Client
     {
         $this->applicationHandlers[] = $handler;
     }
+
     /**
      * Clear the registered application handlers.
      */

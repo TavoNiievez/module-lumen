@@ -10,7 +10,7 @@ A Codeception module for Lumen framework.
 ## Requirements
 
 * `Lumen 6` or higher.
-* `PHP 7.3` or higher.
+* `PHP 7.4` or higher.
 
 ## Installation
 

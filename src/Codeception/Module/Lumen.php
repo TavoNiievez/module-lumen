@@ -17,6 +17,7 @@ use Exception;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Factory as AuthContract;
 use Illuminate\Database\DatabaseManager;
+use Illuminate\Database\Eloquent\Factories\Factory as EloquentFactory;
 use Illuminate\Database\Eloquent\FactoryBuilder;
 use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Laravel\Lumen\Application;
@@ -65,10 +66,7 @@ use Throwable;
  */
 class Lumen extends Framework implements ActiveRecord, PartedModule
 {
-    /**
-     * @var Application
-     */
-    public $app;
+    public Application $app;
 
     /**
      * @var array
@@ -197,11 +195,8 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * <?php
      * $I->amOnRoute('homepage');
      * ```
-     *
-     * @param string $routeName
-     * @param array $params
      */
-    public function amOnRoute(string $routeName, $params = [])
+    public function amOnRoute(string $routeName, array $params = [])
     {
         $route = $this->getRouteByName($routeName);
 
@@ -215,9 +210,6 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
 
     /**
      * Get the route for a route name.
-     *
-     * @param string $routeName
-     * @return array|null
      */
     private function getRouteByName(string $routeName): ?array
     {
@@ -238,10 +230,6 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * Generate the URL for a route specification.
      * Replaces the route parameters from left to right with the parameters
      * passed in the $params array.
-     *
-     * @param array $route
-     * @param array $params
-     * @return string
      */
     private function generateUrlForRoute(array $route, array $params): string
     {
@@ -258,11 +246,8 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
     /**
      * Set the authenticated user for the next request.
      * This will not persist between multiple requests.
-     *
-     * @param Authenticatable $user
-     * @param string|null $guardName The guard name
      */
-    public function amLoggedAs(Authenticatable $user, ?string $guardName = null): void
+    public function amLoggedAs(Authenticatable $user, string $guardName = null): void
     {
         $auth = $this->app['auth'];
 
@@ -280,6 +265,7 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
         $auth = $this->app['auth'];
         $this->assertTrue($auth->check(), 'User is not logged in');
     }
+
     /**
      * Check that user is not authenticated.
      */
@@ -308,7 +294,6 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * // Will return an instance of FooBar, also works for singletons.
      * ```
      *
-     * @param string $class
      * @return mixed
      */
     public function grabService(string $class)
@@ -439,12 +424,7 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
         return $record;
     }
 
-    /**
-     * @param string $modelClass
-     * @param array $attributes
-     * @return EloquentModel|null
-     */
-    protected function findModel(string $modelClass, array $attributes = [])
+    protected function findModel(string $modelClass, array $attributes = []): ?EloquentModel
     {
         $model = new $modelClass;
 
@@ -483,9 +463,6 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * ```
      *
      * @see https://lumen.laravel.com/docs/master/testing#model-factories
-     * @param string $model
-     * @param array $attributes
-     * @param string $name
      * @return mixed
      * @part orm
      */
@@ -509,10 +486,6 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * ```
      *
      * @see https://lumen.laravel.com/docs/master/testing#model-factories
-     * @param string $model
-     * @param int $times
-     * @param array $attributes
-     * @param string $name
      * @return mixed
      * @part orm
      */
@@ -537,9 +510,6 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * ```
      *
      * @see https://lumen.laravel.com/docs/master/testing#model-factories
-     * @param string $model
-     * @param array $attributes
-     * @param string $name
      * @return mixed
      * @part orm
      */
@@ -563,10 +533,6 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * ```
      *
      * @see https://lumen.laravel.com/docs/master/testing#model-factories
-     * @param string $model
-     * @param int $times
-     * @param array $attributes
-     * @param string $name
      * @return mixed
      * @part orm
      */
@@ -580,10 +546,7 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
     }
 
     /**
-     * @param string $model
-     * @param string $name
-     * @param int $times
-     * @return FactoryBuilder
+     * @return EloquentFactory|FactoryBuilder
      */
     protected function modelFactory(string $model, string $name, int $times = 1)
     {
@@ -601,9 +564,8 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
 
     /**
      * Returns a list of recognized domain names.
-     * This elements of this list are regular expressions.
+     * The elements of this list are regular expressions.
      *
-     * @return array
      * @throws ReflectionException
      */
     protected function getInternalDomains(): array
@@ -621,9 +583,6 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * <?php
      * $I->haveBinding('App\MyInterface', 'App\MyImplementation');
      * ```
-     *
-     * @param $abstract
-     * @param $concrete
      */
     public function haveBinding($abstract, $concrete): void
     {
@@ -638,9 +597,6 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * <?php
      * $I->haveSingleton('My\Interface', 'My\Singleton');
      * ```
-     *
-     * @param $abstract
-     * @param $concrete
      */
     public function haveSingleton($abstract, $concrete): void
     {
@@ -660,10 +616,6 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      *     ->needs('$variable')
      *     ->give('value');
      * ```
-     *
-     * @param $concrete
-     * @param $abstract
-     * @param $implementation
      */
     public function haveContextualBinding($concrete, $abstract, $implementation): void
     {
@@ -678,9 +630,6 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * <?php
      * $I->haveInstance('App\MyClass', new App\MyClass());
      * ```
-     *
-     * @param $abstract
-     * @param $instance
      */
     public function haveInstance($abstract, $instance): void
     {
@@ -697,8 +646,6 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      *     $app->make('config')->set(['test_value' => '10']);
      * });
      * ```
-     *
-     * @param $handler
      */
     public function haveApplicationHandler($handler): void
     {
@@ -712,7 +659,6 @@ class Lumen extends Framework implements ActiveRecord, PartedModule
      * <?php
      * $I->clearApplicationHandlers();
      * ```
-     *
      */
     public function clearApplicationHandlers(): void
     {
