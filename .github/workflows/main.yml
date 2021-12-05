@@ -52,10 +52,10 @@ jobs:
 
     - name: Install dotenv 3 for Lumen 6
       if: matrix.lumen == 6
-      run: composer require vlucas/phpdotenv ^3.6 --ignore-platform-req=php
+      run: composer require vlucas/phpdotenv ^3.6
 
     - name: Install dependencies
-      run: composer install --prefer-dist --no-progress --ignore-platform-req=php
+      run: composer install --prefer-dist --no-progress
 
     - name: Validate composer.json and composer.lock
       run: composer validate
@@ -64,7 +64,7 @@ jobs:
     - name: Install Lumen Sample
       run: |
         composer remove codeception/module-lumen --dev --no-update
-        composer install --no-progress
+        composer update --no-progress
       working-directory: framework-tests
 
     - name: Prepare the test environment and run test suite
